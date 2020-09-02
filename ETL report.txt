@@ -1,0 +1,74 @@
+﻿Linda Pikulin
+ETL Project
+9/2/2020
+
+
+Introduction
+
+
+Bravo’s Top Chef is a culinary delight.  On the program, chef’s from around the country are gathered under one roof and compete in Quick Fire and Elimination Challenges in a last-man-standing competition that puts their culinary skills to the test.  Former contestants and season winners have experienced varying degrees of success in their careers as restaurateurs.  Our goal here is to locate Top Chef contestant and winner owned restaurants in any city we chose to visit.  In the future, it would be interesting to analyze information on Top Chef performance and outcomes, such as: are quick fire and elimination challenge wins indicative of future culinary success such as owning a successful restaurant.
+
+
+Extract
+There are two data sources for this project. A Wikipedia list of Top Chef contestants by season, including some performance measures (ranking, quick fire wins, elimination challenge wins; https://en.wikipedia.org/wiki/List_of_Top_Chef_contestants).  This data was pulled into python using pandas.  The second data source is a list of Top Chef owned restaurants in a Reddit post (https://www.reddit.com/r/TopChef/comments/5voi3a/list_of_top_chef_contestant_restaurants/).  The Reddit post could not be read using scraping methods, and my request for a Reddit API key has gone unanswered.  In order to incorporate the data on the study timeline, the data was pasted into Microsoft Excel.  VBA code was used to clean the file, including removing the URL from a hyperlink.  From Excel, the file was saved as a CSV and read into python using pandas.
+
+
+Transform
+To clean the contestants data, the columns were limited to contestant name, season, number of quick fire and elimination wins, ranking, and place of residence.  The season variable was broken into a number and location and moved to its own “seasons” table.  The remaining contestant information was transformed in the following ways: 
+* Place of residence was broken into city and state
+* A unique ID was created for each chef. The unique ID is the chef’s name with all spaces removed
+* Text fields and leading and trailing blank characters stripped
+* The ranked and chef name fields were cleaned up because they contained some extra information for chef’s that competed in more than one season.
+* The contestants table has one row per chef per season. 
+The restaurant table was limited to columns of interest: chef/owner, restaurant name, restaurant location, and URL. The location was split into city names and two character, uppercase state abbreviations. The chef/owner name had all characters removed to create a chef ID to merge with the contestant information.  Restaurants can have more than one Top Chef owner, restaurants by the same name can exist in multiple cities, and chefs can own more than one restaurant. To create a primary key for the restaurants table, unique restaurant and location combinations were used to assign an autonumber ID.  Rows in the restaurant table represent unique restaurant names and locations. The autonumber ID and the chef/owner names are cross-referenced in a chef/restaurant table where individual rows represent unique chef and restaurant (name and location) combinations. 
+  
+Load
+Transformed data were loaded into a relational database in PostgresSQL using SQLAlchemy. The database specifications are shown in Appendix A.
+
+
+Summary
+The resulting chefs_db database was queried to print a list of restaurants owned by Top Chef winners and can also be queried to identify restaurants owned by Top Chef contestants in a city input by the user.  Future analysis might include an analysis of success in restaurant ownership by ranking and number of Quick Fire and Elimination Challenge wins. 
+
+
+________________
+
+
+Appendix A 
+
+DROP TABLE contestants CASCADE;
+DROP TABLE restaurants CASCADE;
+drop table chef_rest CASCADE;
+drop table season CASCADE;
+
+CREATE TABLE season (
+season_num INTEGER PRIMARY KEY,
+season_city VARCHAR(50)
+);
+
+CREATE TABLE contestants (
+chef_name VARCHAR(285),
+chef_id VARCHAR(285) NOT NULL,
+qf_wins        INTEGER,
+ew_wins        INTEGER,
+ranked        VARCHAR(30),
+season_num INTEGER NOT NULL,
+home_city VARCHAR(88),
+home_state VARCHAR(20),
+FOREIGN KEY (season_num) REFERENCES season(season_num),
+PRIMARY KEY (chef_id,season_num)
+);
+
+CREATE TABLE restaurants (
+rest_id INTEGER PRIMARY KEY,
+rest_name VARCHAR(176),        
+rest_url        VARCHAR(187),
+rest_city VARCHAR(64),
+rest_state VARCHAR(64)
+);
+
+CREATE TABLE chef_rest (
+rest_id INTEGER NOT NULL,        
+chef_id VARCHAR(285) NOT NULL,
+FOREIGN KEY (rest_id) REFERENCES restaurants(rest_id),        
+PRIMARY KEY (chef_id,rest_id)
+);
